@@ -1,5 +1,5 @@
 #include <wscommunicator.h>
-#include <Display.h>
+#include "include/display.h"
 
 // Network configuration (these would be provided in reality)
 const char *SSID = "Pomona";

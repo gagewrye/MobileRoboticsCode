@@ -3,7 +3,7 @@
 
 #include <WebSocketsServer.h>
 #include <WiFi.h>
-#include "intervaltimer.h"
+#include <intervaltimer.h>
 
 //
 // State of WebSocket heartbeats
