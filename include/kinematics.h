@@ -2,9 +2,12 @@
 #define KINEMATICS_H
 
 #include <cmath>
+#include <intervaltimer.h>
 
 class Kinematics
 {
+    IntervalTimer timer;
+
 private:
     float x, y, theta;
     const float r; // wheel radius
@@ -12,7 +15,7 @@ private:
 
 public:
     // Constructor
-    Kinematics(float radius, float distance) : r(radius), d(distance), x(0), y(0), theta(0) {}
+    Kinematics(float radius, float distance, unsigned long interval) : r(radius), d(distance), x(0), y(0), theta(0), timer(interval) {}
 
     // Setup function
     void setup() {}
@@ -30,9 +33,9 @@ public:
         theta += R_theta_dot * dt;
     }
 
-    void loopStep(float phi_L_dot, float phi_R_dot, float dt)
+    void loopStep(float phi_L_dot, float phi_R_dot)
     {
-        update_position(phi_L_dot, phi_R_dot, dt);
+        update_position(phi_L_dot, phi_R_dot, timer.getLastDelta() / 1000.0);
     }
 
     float getX() { return x; }

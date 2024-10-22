@@ -2,17 +2,17 @@
 #include <wscommunicator.h>
 #include <motorcontrol.h>
 #include <display.h>
+#include <intervaltimer.h>
 
 // Globals
 const float r = 0.1; // wheel radius
 const float d = 0.1; // distance between wheels
 
-Kinematics kinematics(r, d);
+Kinematics kinematics(r, d, 250);
 Display display;
 MotorControl motorControl;
 WSCommunicator wsCommunicator;
-
-// For the exercise, I want you to
+IntervalTimer timer(10000);
 
 void setup()
 {
@@ -39,10 +39,18 @@ void loop()
     //     Update the motorControl
     motorControl.loopStep(wsCommunicator.isEnabled());
     //     Update the kinematics
-    kinematics.loopStep(motorControl.leftEncoder.getRotationsPerSecond(), motorControl.rightEncoder.getRotationsPerSecond(), 0.25);
-    //     Output the current pose
-    Serial.printf("x: %f, y: %f, theta: %f\n", kinematics.getX(), kinematics.getY(), kinematics.getTheta());
-
+    kinematics.loopStep(motorControl.getLeftVelocity(), motorControl.getRightVelocity());
+    //     Output the current pose every 250 ms
+    if (timer.getLastDelta() % 250 == 0)
+    {
+        Serial.printf("x: %f, y: %f, theta: %f\n", kinematics.getX(), kinematics.getY(), kinematics.getTheta());
+    }
+    if (timer)
+    {
+        // End the loop
+        motorControl.stop();
+        return;
+    }
     // 1. set your left wheel to 0.2 m/s and your right wheel to 0.25 m/s
     // 2. have your robot move for 10 s
     // 3. output the x, y, and theta values to the serial monitor every 250 ms
