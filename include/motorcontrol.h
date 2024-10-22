@@ -13,6 +13,7 @@ For each motor
 // TODO: address deprecation:
 // https://docs.espressif.com/projects/esp-idf/en/stable/esp32/migration-guides/release-5.x/5.0/peripherals.html#pulse-counter-driver
 #include <ESP32Encoder.h>
+
 #include "intervaltimer.h"
 
 const int LEFT_MOTOR_DIR_PIN = 8;
@@ -70,8 +71,6 @@ public:
 
     return velocity;
   }
-
-  void reset() { velocity = 0.0; }
 };
 
 //  ▄▄▄▄▄▄                          █
@@ -87,6 +86,8 @@ class Encoder
   ESP32Encoder encoder;
   unsigned long lastTime;
 
+  bool firstCheck = true;
+
 public:
   Encoder(int dataPin, int clockPin) : dataPin(dataPin), clockPin(clockPin) {}
 
@@ -99,6 +100,12 @@ public:
 
   float getRotationsPerSecond()
   {
+    if (firstCheck)
+    {
+      firstCheck = false;
+      encoder.clearCount();
+    }
+
     unsigned long now = millis();
     float elapsedTime = (now - lastTime) / 1000.0;
     lastTime = now;
@@ -111,8 +118,6 @@ public:
 
     return rotationsPerSecond;
   }
-
-  void reset() { encoder.clearCount(); }
 };
 
 //  ▄    ▄          ▄                         ▄▄▄▄            ▀
@@ -197,6 +202,10 @@ private:
   Encoder leftEncoder;
   Encoder rightEncoder;
 
+  // Speed at the left and right wheels
+  float leftMeasuredVelocity;
+  float rightMeasuredVelocity;
+
   // Control configuration
   float wheelCircumference;
   float leftTargetVelocity;
@@ -217,47 +226,45 @@ public:
 
   void setup()
   {
+    motorDriver.setup();
     leftEncoder.setup();
     rightEncoder.setup();
-    motorDriver.setup();
   }
 
   void loopStep(bool isEnabled)
   {
+    // Stop the motors if not enabled
     if (!isEnabled)
     {
-      reset();
-      return;
+      stop();
     }
 
     if (updateTimer)
     {
-      float leftMeasuredVelocity = leftEncoder.getRotationsPerSecond() * wheelCircumference;
-      float leftControl = leftController.computeVelocity(leftTargetVelocity, leftMeasuredVelocity);
-      long leftPwmPercent = mapf(abs(leftControl), 0, maxVelocity, minPwmPercent, 100);
-      MotorDirection leftDirection = leftControl > 0 ? DIRECTION_FORWARD : DIRECTION_BACKWARD;
+      // Always measure the velocity (even if not updating motor control)
+      leftMeasuredVelocity = leftEncoder.getRotationsPerSecond() * wheelCircumference;
+      rightMeasuredVelocity = rightEncoder.getRotationsPerSecond() * wheelCircumference;
 
-      float rightMeasuredVelocity = rightEncoder.getRotationsPerSecond() * wheelCircumference;
-      float rightControl = rightController.computeVelocity(rightTargetVelocity, rightMeasuredVelocity);
-      long rightPwmPercent = mapf(abs(rightControl), 0, maxVelocity, minPwmPercent, 100);
-      MotorDirection rightDirection = rightControl > 0 ? DIRECTION_FORWARD : DIRECTION_BACKWARD;
+      // If not enabled, then the motors were stopped above
+      if (isEnabled)
+      {
+        float leftControl = leftController.computeVelocity(leftTargetVelocity, leftMeasuredVelocity);
+        long leftPwmPercent = mapf(abs(leftControl), 0, maxVelocity, minPwmPercent, 100);
+        MotorDirection leftDirection = leftControl > 0 ? DIRECTION_FORWARD : DIRECTION_BACKWARD;
 
-      Serial.printf(
-          "%f, %f, %f, %ld, %f, %f, %ld\n", leftTargetVelocity, leftMeasuredVelocity, leftControl, leftPwmPercent,
-          rightMeasuredVelocity, rightControl, rightPwmPercent);
+        float rightControl = rightController.computeVelocity(rightTargetVelocity, rightMeasuredVelocity);
+        long rightPwmPercent = mapf(abs(rightControl), 0, maxVelocity, minPwmPercent, 100);
+        MotorDirection rightDirection = rightControl > 0 ? DIRECTION_FORWARD : DIRECTION_BACKWARD;
 
-      motorDriver.setPwmPercent(leftPwmPercent, rightPwmPercent);
-      motorDriver.setDirection(leftDirection, rightDirection);
+        // Serial.printf(
+        //     "%f, %f, %f, %ld, %f, %f, %ld\n", leftTargetVelocity, leftMeasuredVelocity, leftControl, leftPwmPercent,
+        //     rightMeasuredVelocity, rightControl, rightPwmPercent
+        // );
+
+        motorDriver.setPwmPercent(leftPwmPercent, rightPwmPercent);
+        motorDriver.setDirection(leftDirection, rightDirection);
+      }
     }
-  }
-
-  void reset()
-  {
-    stop();
-    leftEncoder.reset();
-    rightEncoder.reset();
-    leftController.reset();
-    rightController.reset();
   }
 
   void stop() { motorDriver.stop(); }
@@ -270,6 +277,9 @@ public:
     leftTargetVelocity = leftVelocity;
     rightTargetVelocity = rightVelocity;
   }
+
+  float getLeftVelocity() { return leftMeasuredVelocity; }
+  float getRightVelocity() { return rightMeasuredVelocity; }
 };
 
 #endif
