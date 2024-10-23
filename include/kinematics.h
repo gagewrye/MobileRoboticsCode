@@ -2,7 +2,7 @@
 #define KINEMATICS_H
 
 #include <cmath>
-#include <intervaltimer.h>
+#include "../include/intervaltimer.h"
 
 class Kinematics
 {

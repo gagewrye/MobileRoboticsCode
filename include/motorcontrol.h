@@ -14,7 +14,7 @@ For each motor
 // https://docs.espressif.com/projects/esp-idf/en/stable/esp32/migration-guides/release-5.x/5.0/peripherals.html#pulse-counter-driver
 #include <ESP32Encoder.h>
 
-#include "intervaltimer.h"
+#include "../include/intervaltimer.h"
 
 const int LEFT_MOTOR_DIR_PIN = 8;
 const int LEFT_MOTOR_PWM_PIN = 9;

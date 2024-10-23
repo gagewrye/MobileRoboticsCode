@@ -1,18 +1,33 @@
-#include <kinematics.h>
-#include <wscommunicator.h>
-#include <motorcontrol.h>
-#include <display.h>
-#include <intervaltimer.h>
+#include "../include/kinematics.h"
+#include "../include/wscommunicator.h"
+#include "../include/motorcontrol.h"
+#include "../include/display.h"
+#include "../include/intervaltimer.h"
+#include <math.h>
 
 // Globals
-const float r = 0.1; // wheel radius
-const float d = 0.1; // distance between wheels
+const float WHEEL_DIAMETER = 0.062;
+const float WHEEL_DISTANCE = 0.1; // distance between wheels
 
-Kinematics kinematics(r, d, 250);
+Kinematics kinematics(WHEEL_DIAMETER / 2, WHEEL_DISTANCE, 50);
 Display display;
-MotorControl motorControl;
-WSCommunicator wsCommunicator;
 IntervalTimer timer(10000);
+
+// Network configuration
+const char *SSID = "Pomona";
+const uint16_t PORT = 8181;
+const unsigned long HEARTBEAT_INTERVAL = 1000;
+WSCommunicator wsCommunicator(SSID, PORT, HEARTBEAT_INTERVAL);
+
+MotorControl motors(
+    WHEEL_DIAMETER * PI, // Wheel circumference
+    1.0,   // Left motor gain
+    1.0,   // Right motor gain
+    0.1,   // Maximum velocity step
+    1.0,   // Maximum velocity
+    5,    // Minimum PWM percent
+    100    // Interval for updates (ms)
+);
 
 void setup()
 {
@@ -20,10 +35,10 @@ void setup()
     Serial.begin(115200);
     //     Start the wsCommunicator
     wsCommunicator.setup();
-    //     Start the motorControl
-    motorControl.setup();
+    //     Start the motor
+    motors.setup();
     //     Set the motor target velocity
-    motorControl.setTargetVelocity(0.2, 0.25);
+    motors.setTargetVelocity(0.2, 0.25);
     //     Start the display
     display.setup();
     //     Display the IP address
@@ -36,10 +51,10 @@ void loop()
 {
     //     Update the wsCommunicator
     wsCommunicator.loopStep();
-    //     Update the motorControl
-    motorControl.loopStep(wsCommunicator.isEnabled());
+    //     Update the motor
+    motors.loopStep(wsCommunicator.isEnabled());
     //     Update the kinematics
-    kinematics.loopStep(motorControl.getLeftVelocity(), motorControl.getRightVelocity());
+    kinematics.loopStep(motors.getLeftVelocity(), motors.getRightVelocity());
     //     Output the current pose every 250 ms
     if (timer.getLastDelta() % 250 == 0)
     {
@@ -48,7 +63,7 @@ void loop()
     if (timer)
     {
         // End the loop
-        motorControl.stop();
+        motors.stop();
         return;
     }
     // 1. set your left wheel to 0.2 m/s and your right wheel to 0.25 m/s
