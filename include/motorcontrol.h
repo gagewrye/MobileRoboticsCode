@@ -30,16 +30,14 @@ const int RIGHT_ENCODER_DATA_PIN = 1;
 const long COUNTS_PER_ROTATION = 7 * 2 * 50;
 
 // Map a value from [fromLo, fromHi] to [toLo, toHi]
-float mapf(float value, float fromLo, float fromHi, float toLo, float toHi)
-{
+float mapf(float value, float fromLo, float fromHi, float toLo, float toHi) {
   return (value - fromLo) * (toHi - toLo) / (fromHi - fromLo) + toLo;
 }
 
-typedef enum
-{
-  DIRECTION_FORWARD = LOW,
-  DIRECTION_BACKWARD = HIGH
-} MotorDirection;
+// Check if a value is near zero
+bool isNearZero(float value, float epsilon = 0.01) { return abs(value) < epsilon; }
+
+typedef enum { DIRECTION_FORWARD = LOW, DIRECTION_BACKWARD = HIGH } MotorDirection;
 
 //  ▄    ▄        ▀▀█                    ▄▄▄                  ▄                  ▀▀█
 //  ▀▄  ▄▀  ▄▄▄     █                  ▄▀   ▀  ▄▄▄   ▄ ▄▄   ▄▄█▄▄   ▄ ▄▄   ▄▄▄     █
@@ -47,20 +45,18 @@ typedef enum
 //   ▀▄▄▀  █▀▀▀▀    █                  █      █   █  █   █    █     █     █   █    █
 //    ██   ▀█▄▄▀    ▀▄▄    █            ▀▄▄▄▀ ▀█▄█▀  █   █    ▀▄▄   █     ▀█▄█▀    ▀▄▄
 
-class ProportionalAccumulatorController
-{
-public:
+class ProportionalAccumulatorController {
+ public:
   float velocityGain;
   float maxVelocityStep;
   float maxVelocity;
   float velocity;
 
-public:
+ public:
   ProportionalAccumulatorController(float velocityGain, float maxVelocityStep, float maxVelocity)
       : velocityGain(velocityGain), maxVelocityStep(maxVelocityStep), maxVelocity(maxVelocity), velocity(0.0) {}
 
-  float computeVelocity(float targetVelocity, float measuredVelocity)
-  {
+  float computeVelocity(float targetVelocity, float measuredVelocity) {
     float error = targetVelocity - measuredVelocity;
 
     // Constrain the control signal to limit the instantaneous change in velocity
@@ -79,8 +75,7 @@ public:
 //  █      █   █  █      █   █  █   █  █▀▀▀▀   █
 //  █▄▄▄▄▄ █   █  ▀█▄▄▀  ▀█▄█▀  ▀█▄██  ▀█▄▄▀   █
 
-class Encoder
-{
+class Encoder {
   int dataPin;
   int clockPin;
   ESP32Encoder encoder;
@@ -88,20 +83,17 @@ class Encoder
 
   bool firstCheck = true;
 
-public:
+ public:
   Encoder(int dataPin, int clockPin) : dataPin(dataPin), clockPin(clockPin) {}
 
-  void setup()
-  {
+  void setup() {
     encoder.attachHalfQuad(dataPin, clockPin);
     encoder.clearCount();
     lastTime = millis();
   }
 
-  float getRotationsPerSecond()
-  {
-    if (firstCheck)
-    {
+  float getRotationsPerSecond() {
+    if (firstCheck) {
       firstCheck = false;
       encoder.clearCount();
     }
@@ -114,7 +106,7 @@ public:
     encoder.clearCount();
 
     float rotation = (float)pulseCount / (float)COUNTS_PER_ROTATION;
-    float rotationsPerSecond = rotation / (float)elapsedTime;
+    float rotationsPerSecond = rotation / (float)(elapsedTime + 0.0001);
 
     return rotationsPerSecond;
   }
@@ -126,16 +118,14 @@ public:
 //  █ ▀▀ █ █   █    █    █   █   █            █    █  █       █     █▄█   █▀▀▀▀   █
 //  █    █ ▀█▄█▀    ▀▄▄  ▀█▄█▀   █            █▄▄▄▀   █     ▄▄█▄▄    █    ▀█▄▄▀   █
 
-class MotorDriver
-{
+class MotorDriver {
   int dirPin;
   int pwmPin;
 
-public:
+ public:
   MotorDriver(int dirPin, int pwmPin) : dirPin(dirPin), pwmPin(pwmPin) {}
 
-  void setup()
-  {
+  void setup() {
     pinMode(dirPin, OUTPUT);
     setDirection(DIRECTION_FORWARD);
     stop();
@@ -145,45 +135,39 @@ public:
 
   void setDirection(MotorDirection direction) { digitalWrite(dirPin, direction); }
 
-  void setPwmPercent(long percent)
-  {
+  void setPwmPercent(long percent) {
     percent = constrain(percent, 0, 100);
     long dutyCycle = map(percent, 0, 100, 0, 255);
     analogWrite(pwmPin, dutyCycle);
   }
 };
 
-class DualMotorDriver
-{
+class DualMotorDriver {
   MotorDriver leftDriver;
   MotorDriver rightDriver;
 
-public:
+ public:
   DualMotorDriver()
       : leftDriver(LEFT_MOTOR_DIR_PIN, LEFT_MOTOR_PWM_PIN), rightDriver(RIGHT_MOTOR_DIR_PIN, RIGHT_MOTOR_PWM_PIN) {}
 
-  void setup()
-  {
+  void setup() {
     leftDriver.setup();
     rightDriver.setup();
   }
 
-  void stop()
-  {
+  void stop() {
     leftDriver.stop();
     rightDriver.stop();
   }
 
   void setDirection(MotorDirection direction) { setDirection(direction, direction); }
-  void setDirection(MotorDirection leftDirection, MotorDirection rightDirection)
-  {
+  void setDirection(MotorDirection leftDirection, MotorDirection rightDirection) {
     leftDriver.setDirection(leftDirection);
     rightDriver.setDirection(rightDirection);
   }
 
   void setPwmPercent(long percent) { setPwmPercent(percent, percent); }
-  void setPwmPercent(long leftPercent, long rightPercent)
-  {
+  void setPwmPercent(long leftPercent, long rightPercent) {
     leftDriver.setPwmPercent(leftPercent);
     rightDriver.setPwmPercent(rightPercent);
   }
@@ -195,9 +179,8 @@ public:
 //  █ ▀▀ █ █   █    █    █   █   █            █      █   █  █   █    █     █     █   █    █
 //  █    █ ▀█▄█▀    ▀▄▄  ▀█▄█▀   █             ▀▄▄▄▀ ▀█▄█▀  █   █    ▀▄▄   █     ▀█▄█▀    ▀▄▄
 
-class MotorControl
-{
-private:
+class MotorControl {
+ private:
   // Encoder configuration
   Encoder leftEncoder;
   Encoder rightEncoder;
@@ -212,42 +195,58 @@ private:
   float rightTargetVelocity;
   float maxVelocity;
   long minPwmPercent;
+  float maxStep;
   ProportionalAccumulatorController leftController;
   ProportionalAccumulatorController rightController;
   DualMotorDriver motorDriver;
 
   IntervalTimer updateTimer;
 
-public:
+ public:
   MotorControl(
       float wheelCircumference, float leftGain, float rightGain, float maxStep, float maxVelocity, long minPwmPercent,
-      unsigned long interval)
-      : leftEncoder(LEFT_ENCODER_DATA_PIN, LEFT_ENCODER_CLOCK_PIN), rightEncoder(RIGHT_ENCODER_DATA_PIN, RIGHT_ENCODER_CLOCK_PIN), wheelCircumference(wheelCircumference), leftTargetVelocity(0.0), rightTargetVelocity(0.0), maxVelocity(maxVelocity), minPwmPercent(minPwmPercent), leftController(leftGain, maxStep, maxVelocity), rightController(rightGain, maxStep, maxVelocity), motorDriver(), updateTimer(interval) {}
+      unsigned long interval
+  )
+      : leftEncoder(LEFT_ENCODER_DATA_PIN, LEFT_ENCODER_CLOCK_PIN)
+      , rightEncoder(RIGHT_ENCODER_DATA_PIN, RIGHT_ENCODER_CLOCK_PIN)
+      , leftMeasuredVelocity(0.0)
+      , rightMeasuredVelocity(0.0)
+      , wheelCircumference(wheelCircumference)
+      , leftTargetVelocity(0.0)
+      , rightTargetVelocity(0.0)
+      , maxVelocity(maxVelocity)
+      , minPwmPercent(minPwmPercent)
+      , leftController(leftGain, maxStep, maxVelocity)
+      , rightController(rightGain, maxStep, maxVelocity)
+      , maxStep(maxStep)
+      , motorDriver()
+      , updateTimer(interval) {}
 
-  void setup()
-  {
+  void setup() {
     motorDriver.setup();
     leftEncoder.setup();
     rightEncoder.setup();
   }
 
-  void loopStep(bool isEnabled)
-  {
+  void loopStep(bool isEnabled) {
     // Stop the motors if not enabled
-    if (!isEnabled)
-    {
+    if (!isEnabled) {
       stop();
     }
 
-    if (updateTimer)
-    {
+    if (updateTimer) {
       // Always measure the velocity (even if not updating motor control)
       leftMeasuredVelocity = leftEncoder.getRotationsPerSecond() * wheelCircumference;
       rightMeasuredVelocity = rightEncoder.getRotationsPerSecond() * wheelCircumference;
 
       // If not enabled, then the motors were stopped above
-      if (isEnabled)
-      {
+      if (isEnabled) {
+        if (isNearZero(leftTargetVelocity) && isNearZero(rightTargetVelocity) && leftMeasuredVelocity < maxStep &&
+            rightMeasuredVelocity < maxStep) {
+          stop();
+          return;
+        }
+
         float leftControl = leftController.computeVelocity(leftTargetVelocity, leftMeasuredVelocity);
         long leftPwmPercent = mapf(abs(leftControl), 0, maxVelocity, minPwmPercent, 100);
         MotorDirection leftDirection = leftControl > 0 ? DIRECTION_FORWARD : DIRECTION_BACKWARD;
@@ -270,8 +269,7 @@ public:
   void stop() { motorDriver.stop(); }
 
   void setTargetVelocity(float velocity) { setTargetVelocity(velocity, velocity); }
-  void setTargetVelocity(float leftVelocity, float rightVelocity)
-  {
+  void setTargetVelocity(float leftVelocity, float rightVelocity) {
     leftVelocity = constrain(leftVelocity, -maxVelocity, maxVelocity);
     rightVelocity = constrain(rightVelocity, -maxVelocity, maxVelocity);
     leftTargetVelocity = leftVelocity;

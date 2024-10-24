@@ -14,13 +14,13 @@ const char *SSID = "Pomona";
 const uint16_t PORT = 8181;
 const unsigned long HEARTBEAT_INTERVAL = 1000;
 
-Kinematics kinematics(WHEEL_DIAMETER / 2, WHEEL_DISTANCE, 50);
+Kinematics kinematics(WHEEL_DISTANCE, 50);
 Display display;
 IntervalTimer timer(10000);
 WSCommunicator wsCommunicator(SSID, PORT, HEARTBEAT_INTERVAL);
 
 MotorControl motors(
-    WHEEL_DIAMETER *PI, // Wheel circumference
+    WHEEL_DIAMETER * PI, // Wheel circumference
     1.0,                // Left motor gain
     1.0,                // Right motor gain
     0.1,                // Maximum velocity step

@@ -9,21 +9,20 @@ class Kinematics
     IntervalTimer timer;
 
 private:
-    float x, y, theta;
-    const float r; // wheel radius
+    float x, y, theta; // position and orientation
     const float d; // distance between wheels
 
 public:
     // Constructor
-    Kinematics(float radius, float distance, unsigned long interval) : r(radius), d(distance), x(0), y(0), theta(0), timer(interval) {}
+    Kinematics(float distance, unsigned long interval) : d(distance), x(0), y(0), theta(0), timer(interval) {}
 
     // Setup function
     void setup() {}
 
-    void update_position(float phi_L_dot, float phi_R_dot, float dt)
+    void update_position(float leftVelocity, float rightVelocity, float dt)
     {
-        float R_x_dot = (phi_L_dot * r + phi_R_dot * r) / 2;
-        float R_theta_dot = (phi_L_dot * r - phi_R_dot * r) / (2 * d);
+        float R_x_dot = (leftVelocity + rightVelocity ) / 2;
+        float R_theta_dot = (leftVelocity - rightVelocity) / d;
 
         float G_x_dot = R_x_dot * cos(theta);
         float G_y_dot = R_x_dot * sin(theta);
@@ -33,14 +32,19 @@ public:
         theta += R_theta_dot * dt;
     }
 
-    void loopStep(float phi_L_dot, float phi_R_dot)
+    void loopStep(float leftVelocity, float rightVelocity)
     {
-        update_position(phi_L_dot, phi_R_dot, timer.getLastDelta() / 1000.0);
+        update_position(leftVelocity, rightVelocity, timer.getLastDelta() / 1000.0);
     }
 
     float getX() { return x; }
     float getY() { return y; }
     float getTheta() { return theta; }
-};
 
+    void setPose(float newX = 0, float newY = 0, float newTheta = 0) { 
+        x = newX;
+        y = newY;
+        theta = newTheta;
+    }
+}
 #endif
