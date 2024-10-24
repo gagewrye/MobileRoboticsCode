@@ -25,11 +25,8 @@ class Kinematics {
     float v = (rightVelocity + leftVelocity) / 2;
     float thetaDot = (rightVelocity - leftVelocity) / trackWidth;
 
-    float xDot = v * cos(pose.theta);
-    float yDot = v * sin(pose.theta);
-
-    pose.x += xDot * dt;
-    pose.y += yDot * dt;
+    pose.x += v * cos(pose.theta) * dt;
+    pose.y += v * sin(pose.theta) * dt;
     pose.theta += thetaDot * dt;
   }
 
