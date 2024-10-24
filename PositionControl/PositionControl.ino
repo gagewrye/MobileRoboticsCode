@@ -82,18 +82,25 @@ void setup()
 
 void loop()
 {
-    float leftVelocity = motors.getLeftVelocity();
-    float rightVelocity = motors.getRightVelocity();
     
     // Updates
     wsCommunicator.loopStep();
+    
     motors.loopStep(wsCommunicator.isEnabled());
+    float leftVelocity = motors.getLeftVelocity();
+    float rightVelocity = motors.getRightVelocity();
+    
     kinematics.loopStep(leftVelocity, rightVelocity);
-    positionControl.loopStep(kinematics.getX(), kinematics.getY(), kinematics.getTheta(), leftVelocity, rightVelocity);
-
+    struct Pose pose = kinematics.getPose();
+    
+    bool shouldUpdateVelocity = positionControl.loopStep(pose.x, pose.y, pose.theta, leftVelocity, rightVelocity);
+    if (shouldUpdateVelocity){
+        motors.setTargetVelocity(leftVelocity, rightVelocity);
+    }
+    
     // output the x, y, and theta values to the serial monitor
     if (messageTimer){
-        snprintf(message, sizeof(message), "x=%f, y=%f, theta=%f vl=%f vr=%f", kinematics.getX(), kinematics.getY(), kinematics.getTheta(), leftVelocity, rightVelocity);
+        snprintf(message, sizeof(message), "x=%f, y=%f, theta=%f vl=%f vr=%f", pose.x, pose.y, pose.theta, leftVelocity, rightVelocity);
         wsCommunicator.sendText(message, strlen(message));
     }
 }

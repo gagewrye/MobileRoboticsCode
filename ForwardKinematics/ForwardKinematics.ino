@@ -63,7 +63,8 @@ void loop()
 
     // output the x, y, and theta values to the serial monitor every 250 ms
     if (messageTimer){
-        snprintf(message, sizeof(message), "x=%f, y=%f, theta=%f vl=%f vr=%f", kinematics.getX(), kinematics.getY(), kinematics.getTheta(), motors.getLeftVelocity(), motors.getRightVelocity());
+        struct Pose pose = kinematics.getPose();
+        snprintf(message, sizeof(message), "x=%f, y=%f, theta=%f vl=%f vr=%f", pose.x, pose.y, pose.theta, motors.getLeftVelocity(), motors.getRightVelocity());
         wsCommunicator.sendText(message, strlen(message));
     }
 
