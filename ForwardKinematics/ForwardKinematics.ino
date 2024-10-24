@@ -64,7 +64,7 @@ void loop()
     // output the x, y, and theta values to the serial monitor every 250 ms
     if (messageTimer){
         snprintf(message, sizeof(message), "x=%f, y=%f, theta=%f vl=%f vr=%f", kinematics.getX(), kinematics.getY(), kinematics.getTheta(), motors.getLeftVelocity(), motors.getRightVelocity());
-        wsCommunicator.sendText(message, strlen(message))
+        wsCommunicator.sendText(message, strlen(message));
     }
 
     if (timer) // End the loop after 10 seconds
