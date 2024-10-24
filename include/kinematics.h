@@ -46,5 +46,5 @@ public:
         y = newY;
         theta = newTheta;
     }
-}
+};
 #endif

@@ -8,26 +8,34 @@
 // Globals
 const float WHEEL_DIAMETER = 0.062;
 const float WHEEL_DISTANCE = 0.1; // distance between wheels
+IntervalTimer timer(10000);
+IntervalTimer messageTimer(250);
 
-// Network configuration
+// Network Config
 const char *SSID = "Pomona";
 const uint16_t PORT = 8181;
 const unsigned long HEARTBEAT_INTERVAL = 1000;
+WSCommunicator wsCommunicator(SSID, PORT, HEARTBEAT_INTERVAL);
+
+// Motor Config
+const float LEFT_MOTOR_GAIN = 1.0;
+const float RIGHT_MOTOR_GAIN = 1.0;
+const float MAX_VELOCITY_STEP = 0.1;
+const float MAX_VELOCITY = 1.0;
+const long MIN_PWM_PERCENT = 5;
+const unsigned long MOTOR_INTERVAL = 100;
+MotorControl motors(
+    WHEEL_DIAMETER * PI, // Wheel circumference
+    LEFT_MOTOR_GAIN,
+    RIGHT_MOTOR_GAIN,
+    MAX_VELOCITY_STEP,
+    MAX_VELOCITY,
+    MIN_PWM_PERCENT,
+    MOTOR_INTERVAL
+);
 
 Kinematics kinematics(WHEEL_DISTANCE, 50);
 Display display;
-IntervalTimer timer(10000);
-WSCommunicator wsCommunicator(SSID, PORT, HEARTBEAT_INTERVAL);
-
-MotorControl motors(
-    WHEEL_DIAMETER * PI, // Wheel circumference
-    1.0,                // Left motor gain
-    1.0,                // Right motor gain
-    0.1,                // Maximum velocity step
-    1.0,                // Maximum velocity
-    5,                  // Minimum PWM percent
-    100                 // Interval for updates (ms)
-);
 
 void setup()
 {
@@ -53,8 +61,9 @@ void loop()
     kinematics.loopStep(motors.getLeftVelocity(), motors.getRightVelocity());
 
     // output the x, y, and theta values to the serial monitor every 250 ms
-    if (timer.getLastDelta() % 250 == 0)
+    if (messageTimer)
     {
+        snprintf()
         Serial.printf("x: %f, y: %f, theta: %f\n", kinematics.getX(), kinematics.getY(), kinematics.getTheta());
     }
 
