@@ -10,12 +10,13 @@ const float WHEEL_DIAMETER = 0.062;
 const float WHEEL_DISTANCE = 0.1; // distance between wheels
 IntervalTimer timer(10000);
 IntervalTimer messageTimer(250);
+char message[100];
 
 // Network Config
 const char *SSID = "Pomona";
 const uint16_t PORT = 8181;
 const unsigned long HEARTBEAT_INTERVAL = 1000;
-WSCommunicator wsCommunicator(SSID, PORT, HEARTBEAT_INTERVAL);
+WsCommunicator wsCommunicator(SSID, PORT, HEARTBEAT_INTERVAL);
 
 // Motor Config
 const float LEFT_MOTOR_GAIN = 1.0;
@@ -61,10 +62,9 @@ void loop()
     kinematics.loopStep(motors.getLeftVelocity(), motors.getRightVelocity());
 
     // output the x, y, and theta values to the serial monitor every 250 ms
-    if (messageTimer)
-    {
-        snprintf()
-        Serial.printf("x: %f, y: %f, theta: %f\n", kinematics.getX(), kinematics.getY(), kinematics.getTheta());
+    if (messageTimer){
+        snprintf(message, sizeof(message), "x=%f, y=%f, theta=%f vl=%f vr=%f", kinematics.getX(), kinematics.getY(), kinematics.getTheta(), motors.getLeftVelocity(), motors.getRightVelocity());
+        wsCommunicator.sendText(message, strlen(message))
     }
 
     if (timer) // End the loop after 10 seconds
