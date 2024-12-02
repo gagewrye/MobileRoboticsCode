@@ -1,5 +1,24 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from map import OccupancyMap as Map
+from typing import Tuple
+
+# Simulation parameters
+track_width = 0.1  # meters
+dt = 0.1  # time step
+timeout = 30  # seconds
+goal = (6, 4)
+goals = [(2, 4), (5, 5), (7, 3), (5, 9), (10, 1)]
+noise_level = 0.01
+
+edmunds_start = (15, 2)
+edmunds_goal = (3, 3)
+
+# Simulation Type
+compass_simulation = False
+noise_simulation = False
+multi_goal_simulation = False
+edmunds_simulation = True
 
 class Pose:
     def __init__(self, x, y, theta, compass_angle=None, alpha=0.5):
@@ -20,7 +39,6 @@ def forward_kinematics(pose: Pose, v_left, v_right, dt, track_width):
     if pose.compass_angle is not None:
         pose.theta = pose.alpha * pose.theta + (1 - pose.alpha) * pose.compass_angle
 
-
 def position_control(pose: Pose, goal, k_position, k_orientation, max_linear_velocity, max_angular_velocity, track_width, goal_threshold=0.01):
     d = np.hypot(goal[0] - pose.x, goal[1] - pose.y)
     if d < goal_threshold:
@@ -40,11 +58,6 @@ def position_control(pose: Pose, goal, k_position, k_orientation, max_linear_vel
 
     return v_left, v_right
 
-# Simulation parameters
-track_width = 0.1  # meters
-dt = 0.1  # time step
-time_end = 20  # seconds
-
 def simulate(goal, all_trajectories: list, k_position = 0.5, k_orientation = 0.5, max_linear_velocity = 0.5, max_angular_velocity = 0.5, left_noise=0.0, right_noise=0.0, alpha=0.5, compass_noise=None):
     t = 0
     v_left, v_right = 0, 0
@@ -57,7 +70,7 @@ def simulate(goal, all_trajectories: list, k_position = 0.5, k_orientation = 0.5
     percieved_pose = Pose(0, 0, 0, compass_angle=compass_angle, alpha=alpha)
     actual_pose = Pose(0, 0, 0)
     
-    while t < time_end:
+    while t < timeout:
         forward_kinematics(actual_pose, v_left, v_right, dt, track_width)
         
         if compass_angle is not None:
@@ -113,7 +126,7 @@ def simulate_sequence(goals, all_trajectories: list, k_position=0.5, k_orientati
         # Reset the perceived pose to match the actual pose for each goal
         percieved_pose.x, percieved_pose.y, percieved_pose.theta = actual_pose.x, actual_pose.y, actual_pose.theta
 
-        while (np.hypot(goal[0] - percieved_pose.x, goal[1] - percieved_pose.y) > goal_threshold) and t < time_end:
+        while (np.hypot(goal[0] - percieved_pose.x, goal[1] - percieved_pose.y) > goal_threshold) and t < timeout:
             # Update actual robot's motion
             forward_kinematics(actual_pose, v_left, v_right, dt, track_width)
             
@@ -141,6 +154,7 @@ def simulate_sequence(goals, all_trajectories: list, k_position=0.5, k_orientati
             trajectory.append((actual_pose.x, actual_pose.y))
             t += dt
 
+        print(f"Goal: {goal}, Time: {t}")
         # Log trajectory information for each goal
         if compass_noise is None:
             compass_noise = "No Compass"
@@ -156,44 +170,93 @@ def simulate_sequence(goals, all_trajectories: list, k_position=0.5, k_orientati
             'compass_noise': compass_noise,
             'alpha': alpha
         })
+def simulate_edmunds(start: Tuple, goal: Tuple, all_trajectories: list, k_position = 0.5, k_orientation = 0.5, max_linear_velocity = 0.5, max_angular_velocity = 0.5, left_noise=0.0, right_noise=0.0, alpha=0.5, compass_noise=None):
+    map = Map()
+    map.build_edmunds105(start)
+    paths = map.bfs(start, goal)
+    paths = paths[1:]  # Remove the start position
+    t = 0
+    v_left, v_right = 0, 0
+    trajectory = []
+    goal_threshold = 0.5
+    
+    # Initialize the robot's pose
+    compass_angle = 0 if compass_noise is not None else None
+    percieved_pose = Pose(start[0], start[1], 0, compass_angle=compass_angle, alpha=alpha)
+    actual_pose = Pose(start[0], start[1], 0)
+    
+    if paths:  # Ensure paths exist
+        first_waypoint = paths[0]
+        dx, dy = first_waypoint[0] - start[0], first_waypoint[1] - start[1]
+        initial_theta = np.arctan2(dy, dx)
+        percieved_pose.theta = initial_theta
+        actual_pose.theta = initial_theta
+    else:
+        return
 
+    for path in paths:
+        print(f"Goal: {path}")
+        print(f"Percieved Loc: {percieved_pose.x, percieved_pose.y}")
+        print(f"Actual Loc: {actual_pose.x, actual_pose.y}")
+        t = 0
+        trajectory = []
+        
+        while (np.hypot(path[0] - percieved_pose.x, path[1] - percieved_pose.y) > goal_threshold) and t < timeout:
+            # Update actual robot's motion
+            forward_kinematics(actual_pose, v_left, v_right, dt, track_width)
+            if compass_angle is not None:
+                # Simulate and smooth compass readings
+                compass_angle = actual_pose.theta
+                if compass_noise:
+                    compass_angle += np.random.normal(0, compass_noise)
+                percieved_pose.compass_angle = compass_angle
 
-compass_simulation = False
-noise_simulation = False
-multi_goal_simulation = False
+            # Add noise to wheel velocities
+            noisy_v_left = v_left + np.random.normal(0, left_noise)
+            noisy_v_right = v_right + np.random.normal(0, right_noise)
 
-goal = (6, 4)
-goals = [(2, 4), (5, 5), (7, 3), (5, 9), (10, 1)]
+            # Update perceived robot's motion
+            forward_kinematics(percieved_pose, noisy_v_left, noisy_v_right, dt, track_width)
+
+            # Update control commands
+            v_left, v_right = position_control(
+                percieved_pose, path, k_position, k_orientation,
+                max_linear_velocity, max_angular_velocity, track_width
+            )
+
+            # Record the actual trajectory
+            trajectory.append((actual_pose.x, actual_pose.y))
+            t += dt
+
+        # Log trajectory information for each goal
+        if compass_noise is None:
+            compass_noise = "No Compass"
+        all_trajectories.append({
+            'trajectory': trajectory,
+            'goal': path,
+            'k_position': k_position,
+            'k_orientation': k_orientation,
+            'max_linear_velocity': max_linear_velocity,
+            'max_angular_velocity': max_angular_velocity,
+            'left_noise': left_noise,
+            'right_noise': right_noise,
+            'compass_noise': compass_noise,
+            'alpha': alpha
+        })
+        map.travel_to(round(actual_pose.x), round(actual_pose.y))
+    map.show()
+
 all_trajectories = []
-noise_level = 0.01
-
-# Ideal Simulation Tests
-if not noise_simulation and not multi_goal_simulation:
-    simulate(goal, all_trajectories)
-    simulate(goal, all_trajectories, k_position=2.0, k_orientation=2.0)
-    simulate(goal, all_trajectories, max_linear_velocity=2.0, max_angular_velocity=2.0)
-    simulate(goal, all_trajectories, max_linear_velocity=5.0, max_angular_velocity=5.0)
-    simulate(goal, all_trajectories, max_linear_velocity=5.0)
-
-    goal = (10, 1)
-    simulate(goal, all_trajectories)
-    simulate(goal, all_trajectories, max_linear_velocity=2.0, max_angular_velocity=2.0)
-    simulate(goal, all_trajectories, max_linear_velocity=5.0)
-
-    goal = (1, 5)
-    simulate(goal, all_trajectories)
-    simulate(goal, all_trajectories, k_position=2.0, k_orientation=2.0)
-    simulate(goal, all_trajectories, max_linear_velocity=2.0, max_angular_velocity=2.0)
 
 # Noise Simulation
-if noise_simulation and not compass_simulation:
+if noise_simulation:
     simulate(goal, all_trajectories)
     simulate(goal, all_trajectories, left_noise=noise_level)
     simulate(goal, all_trajectories, right_noise=noise_level)
     simulate(goal, all_trajectories, left_noise=noise_level, right_noise=noise_level)
 
 # Compass Noise Simulation
-if noise_simulation and compass_simulation:
+elif compass_simulation:
     simulate(goal, all_trajectories)
     motor_noise = 0.05
     simulate(goal, all_trajectories, left_noise=motor_noise, right_noise=motor_noise)
@@ -210,9 +273,31 @@ if noise_simulation and compass_simulation:
     alpha = 0.1
     simulate(goal, all_trajectories, left_noise=motor_noise, right_noise=motor_noise, alpha=alpha, compass_noise=compass_noise)
 
+elif edmunds_simulation:
+    multi_goal_simulation = True
+    simulate_edmunds(edmunds_start, edmunds_goal, all_trajectories)
+
 # Multi-Goal Simulation
-if multi_goal_simulation:
+elif multi_goal_simulation:
     simulate_sequence(goals, all_trajectories, left_noise=noise_level, right_noise=noise_level, compass_noise=noise_level)
+
+# Ideal Simulation Tests
+else:
+    simulate(goal, all_trajectories)
+    simulate(goal, all_trajectories, k_position=2.0, k_orientation=2.0)
+    simulate(goal, all_trajectories, max_linear_velocity=2.0, max_angular_velocity=2.0)
+    simulate(goal, all_trajectories, max_linear_velocity=5.0, max_angular_velocity=5.0)
+    simulate(goal, all_trajectories, max_linear_velocity=5.0)
+
+    goal = (10, 1)
+    simulate(goal, all_trajectories)
+    simulate(goal, all_trajectories, max_linear_velocity=2.0, max_angular_velocity=2.0)
+    simulate(goal, all_trajectories, max_linear_velocity=5.0)
+
+    goal = (1, 5)
+    simulate(goal, all_trajectories)
+    simulate(goal, all_trajectories, k_position=2.0, k_orientation=2.0)
+    simulate(goal, all_trajectories, max_linear_velocity=2.0, max_angular_velocity=2.0)
 
 # Plot all trajectories
 plt.figure(figsize=(10, 10))
@@ -220,15 +305,15 @@ goal = None
 first = True
 
 for traj_info in all_trajectories:
+    traj = np.array(traj_info['trajectory'])
     # Add Goals to the legend
     if traj_info['goal'] != goal and not multi_goal_simulation:
         goal = traj_info['goal']
         plt.plot([], [], ' ', label=f"$\\bf{{Goal: {goal}}}$")  
-    traj = np.array(traj_info['trajectory'])
-    if first and noise_simulation:
+    if first and noise_simulation or compass_simulation:
         plt.plot(traj[:, 0], traj[:, 1], label=f"Ideal Trajectory")
         first = False
-    elif noise_simulation:
+    elif noise_simulation or compass_simulation:
         if compass_simulation:
             plt.title('Robot Trajectories with Compass')
             if traj_info['compass_noise'] == "No Compass":

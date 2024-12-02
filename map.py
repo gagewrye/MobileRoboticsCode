@@ -28,7 +28,7 @@ class OccupancyMap():
         self.traveled[self.location] = (x, y)
         self.location = (x, y)
 
-    def bfs(self, start, goal) -> list[Tuple]:
+    def bfs(self, start, goal, smooth=False) -> list[Tuple]:
         queue = [start]
         visited = set()
         parent = dict()
@@ -59,8 +59,22 @@ class OccupancyMap():
         while path[-1] != start:
             path.append(parent[path[-1]])
         path.reverse()
-        return path
 
+        if smooth:
+            path = self.smooth_path(path)
+        return path
+    
+    def smooth_path(self, paths:list[Tuple]) -> list[Tuple]:
+        if not paths:
+            return []
+        smoothed = [paths[0]]
+        for i in range(1, len(paths) - 1):
+            prev, curr, next_ = paths[i - 1], paths[i], paths[i + 1]
+            if (next_[0] - curr[0], next_[1] - curr[1]) != (curr[0] - prev[0], curr[1] - prev[1]):
+                smoothed.append(curr)
+        smoothed.append(paths[-1])
+        return smoothed
+    
     def show(self):
         # Create a grid
         occupied = np.zeros((self.height, self.width))

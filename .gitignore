@@ -3,3 +3,4 @@
 _temp/
 Exercises/
 untracked-demos/
+__pycache__/map.cpython-312.pyc
