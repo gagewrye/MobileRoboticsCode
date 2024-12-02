@@ -3,8 +3,9 @@ import matplotlib.ticker as ticker
 import matplotlib.colors as mcolors
 import numpy as np
 from typing import Tuple
-class map():
-    def __init__(self, width, height, location=(0, 0)):
+
+class OccupancyMap():
+    def __init__(self, width=10, height=10, location=(0, 0)):
         self.occupied = dict()
         self.traveled = dict()
         self.location = location
@@ -19,6 +20,10 @@ class map():
             return True # Occupied if outside the map
         return (x, y) in self.occupied
     
+    def get_location(self) -> Tuple:
+        return self.location
+    def set_location(self, x, y):
+        self.location = (x, y)
     def travel_to(self, x, y):
         self.traveled[self.location] = (x, y)
         self.location = (x, y)
@@ -118,47 +123,57 @@ class map():
         plt.title('Occupancy GridMap')
         plt.show()
 
-# Create a map
-m = map(width=21, height=11, location=(15, 2))
+    def build_edmunds105(self, location=(15, 2)):
+        """
+        Builds the occupancy map for Edmunds 105 and places the robot at (15, 2).
+        """
+        self.height = 11
+        self.width = 21
+        self.location = location
+        self.occupied = dict()
+        self.traveled = dict()
+        
+        # Add occupied points
+        # Perimeter
+        for i in range(0, 21):
+            self.add_occupancy(i, 0)
+            self.add_occupancy(i, 10)
+        # Long Desk
+        for i in range(3, 14):
+            self.add_occupancy(i, 9)
+            self.add_occupancy(i, 8)
+        # Wall
+        for i in range(0, 7):
+            self.add_occupancy(20, i)
+            self.add_occupancy(19, i)
+            self.add_occupancy(18, i)
+        for i in range(1, 10):
+            self.add_occupancy(0, i)
+            self.add_occupancy(20, i)
 
-# Add occupied points
-# Perimeter
-for i in range(0, 21):
-    m.add_occupancy(i, 0)
-    m.add_occupancy(i, 10)
-# Long Desk
-for i in range(3, 14):
-    m.add_occupancy(i, 9)
-    m.add_occupancy(i, 8)
-# Wall
-for i in range(0, 7):
-    m.add_occupancy(20, i)
-    m.add_occupancy(19, i)
-    m.add_occupancy(18, i)
-for i in range(1, 10):
-    m.add_occupancy(0, i)
-    m.add_occupancy(20, i)
+        # Desks
+        for i in range(1, 6):
+            # Desk 1
+            self.add_occupancy(1, i)
+            self.add_occupancy(2, i)
+            # Desk 2
+            self.add_occupancy(4, i)
+            self.add_occupancy(5, i)
+            # Desk 3
+            self.add_occupancy(7, i)
+            self.add_occupancy(8, i)
+            # Desk 4
+            self.add_occupancy(10, i)
+            self.add_occupancy(11, i)
+            self.add_occupancy(12, i)
 
-# Desks
-for i in range(1, 6):
-    # Desk 1
-    m.add_occupancy(1, i)
-    m.add_occupancy(2, i)
-    # Desk 2
-    m.add_occupancy(4, i)
-    m.add_occupancy(5, i)
-    # Desk 3
-    m.add_occupancy(7, i)
-    m.add_occupancy(8, i)
-    # Desk 4
-    m.add_occupancy(10, i)
-    m.add_occupancy(11, i)
-    m.add_occupancy(12, i)
-
-path = m.bfs((15, 2), (3, 3))
-
-for x, y in path:
-    m.travel_to(x, y)
-
-# Show the map
-m.show()
+# Example usage
+if __name__ == "__main__":
+    m = OccupancyMap()
+    m.build_edmunds105()
+    current_location = m.get_location()
+    path = m.bfs(current_location, (3, 3))
+    for x, y in path:
+        m.travel_to(x, y)
+    # Show the map
+    m.show()
